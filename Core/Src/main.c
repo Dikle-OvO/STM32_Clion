@@ -18,6 +18,9 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+
+#include <stdio.h>
+#include "util_platform.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -33,6 +36,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -41,23 +45,109 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan;
+
+UART_HandleTypeDef huart1;
+
 osThreadId defaultTaskHandle;
 /* USER CODE BEGIN PV */
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_CAN_Init(void);
+static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
-
+uint32_t global_ms;
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint32_t can_id,
+                               uint8_t is_ext_id, const uint8_t *data_buf, uint16_t data_len)
+{
+  // 1. 参数合法性检查（避免非法调用导致硬件异常）
+  if (hcan == NULL)                  // 检查 CAN 句柄是否为空
+    return HAL_ERROR;
+  if (data_buf == NULL)              // 检查数据缓冲区是否为空
+    return HAL_ERROR;
+  if (data_len < 1 || data_len > 8)  // 检查数据长度（CAN 数据帧仅支持 1~8 字节）
+    return HAL_ERROR;
+  // 检查 CAN ID 合法性（标准帧 11 位，扩展帧 29 位）
+  if ((is_ext_id == 0 && can_id > 0x7FF) || (is_ext_id == 1 && can_id > 0x1FFFFFFF))
+    return HAL_ERROR;
 
+  // 2. 配置 CAN 发送头部（根据参数动态设置）
+  CAN_TxHeaderTypeDef tx_header = {0};  // 初始化头部结构体（避免随机值）
+  if (is_ext_id == 1)
+  {
+    tx_header.IDE = CAN_ID_EXT;       // 扩展帧模式（29位 ID）
+    tx_header.ExtId = can_id;         // 赋值扩展 ID
+  }
+  else
+  {
+    tx_header.IDE = CAN_ID_STD;       // 标准帧模式（11位 ID）
+    tx_header.StdId = can_id;         // 赋值标准 ID
+  }
+  tx_header.RTR = CAN_RTR_DATA;         // 数据帧（非远程请求帧）
+  tx_header.DLC = data_len;             // 数据长度（用户指定）
+  tx_header.TransmitGlobalTime = DISABLE; // 禁用发送时间戳（按需启用）
+
+  uint32_t tx_mailbox;  // 存储选中的发送邮箱编号
+
+  HAL_StatusTypeDef send_status = HAL_CAN_AddTxMessage(
+      hcan,          // CAN 句柄
+      &tx_header,    // 发送头部配置
+      data_buf,      // 发送数据缓冲区
+      &tx_mailbox    // 输出选中的邮箱编号
+  );
+
+  return send_status;  // 返回发送结果（供调用者判断是否成功）
+}
+
+void CAN_Stack_init(void)
+{
+  // PduR_Config_Init();
+  //
+  // Com_Init(&gComConfigExample);
+  //
+  // Nm_Init(&gNmConfigExample);
+
+  //	Com_IpduGroupStart(0, TRUE);
+  //	Com_EnableReceptionDM(0);
+}
+
+
+uint8_t send_data1[] = {0x12, 0x34};
+
+static void vOneMsTimerCallback(TimerHandle_t xTimer)
+{
+  // 时间变量自增
+  global_ms++;
+}
+
+// 定时器句柄
+TimerHandle_t xOneMsTimer = NULL;
+void vInitGlobalTimer(void)
+{
+  // 创建软件定时器，周期为1ms，自动重载
+  xOneMsTimer = xTimerCreate(
+      "1ms Timer",           // 定时器名称
+      pdMS_TO_TICKS(1),      // 周期：1ms（转换为系统滴答数）
+      pdTRUE,                // 自动重载
+      NULL,                  // 不使用定时器ID
+      vOneMsTimerCallback    // 回调函数
+  );
+
+  // 启动定时器
+  if(xOneMsTimer != NULL)
+  {
+    xTimerStart(xOneMsTimer, 0);
+  }
+}
 /* USER CODE END 0 */
 
 /**
@@ -89,7 +179,38 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_CAN_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  if (HAL_CAN_Start(&hcan) != HAL_OK) {
+    Error_Handler();
+  }
+
+  CAN_FilterTypeDef sFilterConfig;
+  sFilterConfig.FilterBank = 0;
+  // 其他滤波器配置参数设置...
+  if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK){
+    Error_Handler();
+  }
+
+  if(HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK){
+    Error_Handler();
+  }
+
+  CAN_Stack_init();
+  // UART_Send_IT(&huart1, "Hi\r\n");
+
+  util_printf("Hello World\r\n");
+
+  CAN_SendData(
+      &hcan,          // CAN 句柄（CubeMX 生成的 &hcan1 或 &hcan2）
+      0x123,           // 标准 ID（11位，0~0x7FF）
+      0,               // 0=标准帧，1=扩展帧
+      send_data1,      // 数据缓冲区
+      sizeof(send_data1)  // 数据长度（2 字节，sizeof 自动计算）
+  );
+
+
 
   /* USER CODE END 2 */
 
@@ -111,7 +232,7 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128); //调用CMSIS RTOS的接口，以方便不同RTOS的切换这里本质上是切换了个
+  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -174,6 +295,76 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief CAN Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN_Init(void)
+{
+
+  /* USER CODE BEGIN CAN_Init 0 */
+
+  /* USER CODE END CAN_Init 0 */
+
+  /* USER CODE BEGIN CAN_Init 1 */
+
+  /* USER CODE END CAN_Init 1 */
+  hcan.Instance = CAN1;
+  hcan.Init.Prescaler = 12;
+  hcan.Init.Mode = CAN_MODE_NORMAL;
+  hcan.Init.SyncJumpWidth = CAN_SJW_2TQ;
+  hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+  hcan.Init.TimeSeg2 = CAN_BS2_3TQ;
+  hcan.Init.TimeTriggeredMode = DISABLE;
+  hcan.Init.AutoBusOff = ENABLE;
+  hcan.Init.AutoWakeUp = DISABLE;
+  hcan.Init.AutoRetransmission = DISABLE;
+  hcan.Init.ReceiveFifoLocked = DISABLE;
+  hcan.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN_Init 2 */
+
+  /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -222,10 +413,10 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
     HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
     // HAL_Delay(500);
     vTaskDelay(500);
+    util_printf("Hello World\r\n");
   }
   /* USER CODE END 5 */
 }
@@ -248,7 +439,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-
+  global_ms++;
   /* USER CODE END Callback 1 */
 }
 

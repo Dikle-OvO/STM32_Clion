@@ -36,6 +36,8 @@ add_executable(${CMAKE_PROJECT_NAME})
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx) #将此目录作为子项目引入，递归解析CMakeLists
+# add CAN_Stack
+add_subdirectory(cmake/CAN_stack)
 
 # Link directories setup
 # 有些库不开源，不提供.c源文件，仅给出.a或者.so的链接文件，通过此命令查找链接文件的文件夹，与下文引入cubemx的区别是，下文那个库是受到CMake管理的
@@ -67,7 +69,7 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 #这是使用了库管理的方法，如果没有定义库，直接target_sources就不用link，但一般不这样做
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
-
+    CAN_Stack
     # Add user defined libraries
 )
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mfloat-abi=soft") # 此处是软件浮点；硬件浮点通道也有特定变量

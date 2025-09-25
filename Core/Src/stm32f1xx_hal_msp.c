@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include <stdio.h>
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
@@ -41,7 +42,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+extern UART_HandleTypeDef huart1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,6 +57,23 @@
 
 /* USER CODE BEGIN 0 */
 
+uint8_t uart_tx_buf[128];
+uint16_t uart_tx_len = 0;
+void UART_Send_IT(UART_HandleTypeDef *huart, const uint8_t *data)
+{
+  if (data == NULL) return;  // 空指针检查
+
+  // 计算字符串长度（不含 '\0'）
+  uint16_t len = strlen((const char*)data);
+  if (data == NULL || len == 0 || len > sizeof(uart_tx_buf)) return;
+  // 复制数据到全局缓冲区（避免原数据被修改）
+  memcpy(uart_tx_buf, data, len);
+  uart_tx_len = len;
+
+  // 启动发送
+  // HAL_UART_Transmit_IT(huart, uart_tx_buf, uart_tx_len);
+  HAL_UART_Transmit(huart, uart_tx_buf, uart_tx_len,10);
+}
 /* USER CODE END 0 */
 /**
   * Initializes the Global MSP.
@@ -81,6 +99,149 @@ void HAL_MspInit(void)
   /* USER CODE BEGIN MspInit 1 */
 
   /* USER CODE END MspInit 1 */
+}
+
+/**
+  * @brief CAN MSP Initialization
+  * This function configures the hardware resources used in this example
+  * @param hcan: CAN handle pointer
+  * @retval None
+  */
+void HAL_CAN_MspInit(CAN_HandleTypeDef* hcan)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  if(hcan->Instance==CAN1)
+  {
+    /* USER CODE BEGIN CAN1_MspInit 0 */
+
+    /* USER CODE END CAN1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_CAN1_CLK_ENABLE();
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**CAN GPIO Configuration
+    PA11     ------> CAN_RX
+    PA12     ------> CAN_TX
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_11;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_12;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* USER CODE BEGIN CAN1_MspInit 1 */
+
+    /* USER CODE END CAN1_MspInit 1 */
+
+  }
+
+}
+
+/**
+  * @brief CAN MSP De-Initialization
+  * This function freeze the hardware resources used in this example
+  * @param hcan: CAN handle pointer
+  * @retval None
+  */
+void HAL_CAN_MspDeInit(CAN_HandleTypeDef* hcan)
+{
+  if(hcan->Instance==CAN1)
+  {
+    /* USER CODE BEGIN CAN1_MspDeInit 0 */
+
+    /* USER CODE END CAN1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_CAN1_CLK_DISABLE();
+
+    /**CAN GPIO Configuration
+    PA11     ------> CAN_RX
+    PA12     ------> CAN_TX
+    */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_11|GPIO_PIN_12);
+
+    /* USER CODE BEGIN CAN1_MspDeInit 1 */
+
+    /* USER CODE END CAN1_MspDeInit 1 */
+  }
+
+}
+
+/**
+  * @brief UART MSP Initialization
+  * This function configures the hardware resources used in this example
+  * @param huart: UART handle pointer
+  * @retval None
+  */
+void HAL_UART_MspInit(UART_HandleTypeDef* huart)
+{
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  if(huart->Instance==USART1)
+  {
+    /* USER CODE BEGIN USART1_MspInit 0 */
+
+    /* USER CODE END USART1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_USART1_CLK_ENABLE();
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    /**USART1 GPIO Configuration
+    PA9     ------> USART1_TX
+    PA10     ------> USART1_RX
+    */
+    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* USART1 interrupt Init */
+    HAL_NVIC_SetPriority(USART1_IRQn, 5, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
+    /* USER CODE BEGIN USART1_MspInit 1 */
+
+    /* USER CODE END USART1_MspInit 1 */
+
+  }
+
+}
+
+/**
+  * @brief UART MSP De-Initialization
+  * This function freeze the hardware resources used in this example
+  * @param huart: UART handle pointer
+  * @retval None
+  */
+void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
+{
+  if(huart->Instance==USART1)
+  {
+    /* USER CODE BEGIN USART1_MspDeInit 0 */
+
+    /* USER CODE END USART1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_USART1_CLK_DISABLE();
+
+    /**USART1 GPIO Configuration
+    PA9     ------> USART1_TX
+    PA10     ------> USART1_RX
+    */
+    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_9|GPIO_PIN_10);
+
+    /* USART1 interrupt DeInit */
+    HAL_NVIC_DisableIRQ(USART1_IRQn);
+    /* USER CODE BEGIN USART1_MspDeInit 1 */
+
+    /* USER CODE END USART1_MspDeInit 1 */
+  }
+
 }
 
 /* USER CODE BEGIN 1 */

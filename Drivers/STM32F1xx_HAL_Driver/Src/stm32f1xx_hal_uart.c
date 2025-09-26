@@ -278,7 +278,6 @@
 /* Private macro -------------------------------------------------------------*/
 /* Private variables ---------------------------------------------------------*/
 /* Private function prototypes -----------------------------------------------*/
-//redirect _write to huart1，necessary for printf
 /** @addtogroup UART_Private_Functions  UART Private Functions
   * @{
   */

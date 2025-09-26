@@ -22,6 +22,8 @@
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "util_platform.h"
+#include "PduR_Lcfg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -55,6 +57,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern CAN_HandleTypeDef hcan;
 extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim1;
 
@@ -161,6 +164,34 @@ void DebugMon_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles USB high priority or CAN TX interrupts.
+  */
+void USB_HP_CAN1_TX_IRQHandler(void)
+{
+  /* USER CODE BEGIN USB_HP_CAN1_TX_IRQn 0 */
+
+  /* USER CODE END USB_HP_CAN1_TX_IRQn 0 */
+  HAL_CAN_IRQHandler(&hcan);
+  /* USER CODE BEGIN USB_HP_CAN1_TX_IRQn 1 */
+
+  /* USER CODE END USB_HP_CAN1_TX_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USB low priority or CAN RX0 interrupts.
+  */
+void USB_LP_CAN1_RX0_IRQHandler(void)
+{
+  /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 0 */
+
+  /* USER CODE END USB_LP_CAN1_RX0_IRQn 0 */
+  HAL_CAN_IRQHandler(&hcan);
+  /* USER CODE BEGIN USB_LP_CAN1_RX0_IRQn 1 */
+
+  /* USER CODE END USB_LP_CAN1_RX0_IRQn 1 */
+}
+
+/**
   * @brief This function handles TIM1 update interrupt.
   */
 void TIM1_UP_IRQHandler(void)
@@ -189,5 +220,25 @@ void USART1_IRQHandler(void)
 }
 
 /* USER CODE BEGIN 1 */
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  CAN_RxHeaderTypeDef RxMsg;
+  uint8_t RxData[8];
 
+  // 读取接收的数据
+  if (HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxMsg, RxData) == HAL_OK)
+  {
+    // 处理数据：例如打印ID、数据长度和内容
+    util_printf("Received ID: 0x%X, Length: %d, Data: ", RxMsg.StdId, RxMsg.DLC);
+    for (uint8_t i = 0; i < RxMsg.DLC; i++)
+    {
+      util_printf("%02X ", RxData[i]);
+    }
+    util_printf("\r\n");
+
+    PduR_RxCallback(&gPduRLink, PDUR_MID_COM, RxMsg.StdId, 0, RxData, RxMsg.DLC);
+    PduR_RxCallback(&gPduRLink, PDUR_MID_NM, RxMsg.StdId, 0, RxData, RxMsg.DLC);
+
+  }
+}
 /* USER CODE END 1 */

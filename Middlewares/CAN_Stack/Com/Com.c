@@ -226,7 +226,7 @@ void Com_MainFunctionTx(void)
                     pRte->txStatus = COM_TX_STA_FAILED;
                     if (pIPdu->cbkTxErr) {
                         pIPdu->cbkTxErr(j);
-											util_printf("CAN Msg Time out：%d\r\n", pRte->txTimeout);
+                        util_printf("CAN Msg Time out：%d\r\n", pRte->txTimeout);
                     }
                 }
             }

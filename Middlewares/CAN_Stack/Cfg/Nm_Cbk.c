@@ -20,11 +20,11 @@
 
 Std_ReturnType CanNmIf_Transmit(PduIdType CanTxPduId, const PduInfoType *PduInfoPtr)
 {
-    util_printf("CanNmIf Tx: CanTxPduId=%d, data(%lubytes):", CanTxPduId, PduInfoPtr->SduLength);
-    for (PduLengthType i = 0; i < PduInfoPtr->SduLength; ++i) {
-        printf(" %02X", PduInfoPtr->SduDataPtr[i]);
-    }
-    printf("\n");
+    // util_printf("CanNmIf Tx: CanTxPduId=%d, data(%lubytes):", CanTxPduId, PduInfoPtr->SduLength);
+    // for (PduLengthType i = 0; i < PduInfoPtr->SduLength; ++i) {
+    //     printf(" %02X", PduInfoPtr->SduDataPtr[i]);
+    // }
+    // printf("\n");
 		
 		if (PDUR_TX_RET_OK != PduR_Send(&gPduRLink, PDUR_MID_COM, CanTxPduId, 0, PduInfoPtr->SduDataPtr, 8, 0)) {
         return E_NOT_OK;
@@ -46,9 +46,9 @@ void Nm_NetworkMode(NetworkHandleType nmNetworkHandle)
 {
     util_printf("Nm%d NetworkMode\n", nmNetworkHandle);
 		
-		Nm_NetworkRequest(nmNetworkHandle);
+    Nm_NetworkRequest(nmNetworkHandle);
 	
-		Com_IpduGroupStart(nmNetworkHandle, FALSE);
+    Com_IpduGroupStart(nmNetworkHandle, FALSE);
     Com_EnableReceptionDM(nmNetworkHandle);
 }
 

@@ -41,7 +41,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+extern CAN_HandleTypeDef hcan;
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -54,6 +54,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
   void UART_Send_IT(UART_HandleTypeDef *huart, const uint8_t *data);
+  HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint32_t can_id,
+                               uint8_t is_ext_id, const uint8_t *data_buf, uint16_t data_len);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

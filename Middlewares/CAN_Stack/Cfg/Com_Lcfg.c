@@ -12,52 +12,22 @@
 #include "util_macro.h"
 #include "util_platform.h"
 
-#include "MyCAN.h"
 #include "PduR.h"
 #include "Pdur_Lcfg.h"
-
-#include "OLED.h"
 
 Std_ReturnType PduR_ComTransmit(PduIdType PduId, const PduInfoType *PduInfoPtr)
 {
     const ComPduMetaDataType *pMetaData = (ComPduMetaDataType *)PduInfoPtr->MetaDataPtr;
 
-    util_printf("Com[%d] Tx: canid=%x, data(%lubytes):", pMetaData->channel, pMetaData->canId, PduInfoPtr->SduLength);
-    for (PduLengthType i = 0; i < PduInfoPtr->SduLength; ++i) {
-        printf(" %02X", PduInfoPtr->SduDataPtr[i]);
-    }
-    printf("\n");
+    // util_printf("Com[%d] Tx: canid=%x, data(%lubytes):", pMetaData->channel, pMetaData->canId, PduInfoPtr->SduLength);
+    // for (PduLengthType i = 0; i < PduInfoPtr->SduLength; ++i) {
+    //     printf(" %02X", PduInfoPtr->SduDataPtr[i]);
+    // }
+    // printf("\n");
+	// Com_TxConfirmation(PduId, E_OK);//未配置底层，直接在这通知
 		
-		CanTxMsg PduR_CANcom_Msg = {
-		.StdId = pMetaData->canId,
-		.ExtId = 0x00000000,
-		.IDE = CAN_Id_Standard,
-		.RTR = CAN_RTR_Data,
-		.DLC = 8, //Service Data Unit
-		.Data = {0}
-		};
-		
-		for (PduLengthType i = 0; i < PduInfoPtr->SduLength; ++i) 
-		{
-			// 防止数组越界（若 DLC 超过 8，只复制前 8 字节）
-			if (i < sizeof(PduR_CANcom_Msg.Data)) 
-			{
-					PduR_CANcom_Msg.Data[i] = PduInfoPtr->SduDataPtr[i];
-      } 
-			else 
-			{
-          // 可选：超出最大长度时打印警告（根据硬件能力调整）
-          util_printf("Warning: Data length exceeds CAN max limit! Length=%lu, Max=%lu\n",
-                      PduInfoPtr->SduLength, sizeof(PduR_CANcom_Msg.Data));
-          break;
-      }
-    }
-		
-//		MyCAN_Transmit(&PduR_CANcom_Msg);
-		Com_TxConfirmation(PduId, E_OK);//未配置底层，直接在这通知
-		
-		if (PDUR_TX_RET_OK != PduR_Send(&gPduRLink, PDUR_MID_COM, pMetaData->canId, 0, PduInfoPtr->SduDataPtr, 8, 0)) {
-//        return E_NOT_OK;
+	if (PDUR_TX_RET_OK != PduR_Send(&gPduRLink, PDUR_MID_COM, pMetaData->canId, 0, PduInfoPtr->SduDataPtr, 8, 0)) {
+        return E_NOT_OK;
     }
 		
     return E_OK;
@@ -70,25 +40,24 @@ static ComRxRteType can1ComRxRte[10];
 
 static void Com_CbkCan1TxAck(PduIdType PduId)
 {
-//	printf("%d: TX Ack\r\n",PduId);
+	// util_printf("%d: TX Ack\r\n",PduId);
 }
 
 static void Com_CbkCan1TxErr(PduIdType PduId)
 {
-	printf("%d: TX Err\r\n",PduId);
+	util_printf("%d: TX Err\r\n",PduId);
 }
 
 static void Com_CbkCan1RxAck(PduIdType PduId, PduInfoType const *PduInfoPtr)
 {
-	printf("%d: RX Ack\r\n",PduId);
+	util_printf("%d: RX Ack\r\n",PduId);
 	
 	uint8_t gearValid = 0, gearStatus = 0, speedValid = 0;
-  uint16_t speed = 0;
+	uint16_t speed = 0;
 	Com_ReceiveSignal(SIG_RX_IDX_VCU_VehicleGearValid_0x200, &gearValid);
 	Com_ReceiveSignal(SIG_RX_IDX_VCU_VehicleGearStatus_0x200, &gearStatus);
 	Com_ReceiveSignal(SIG_RX_IDX_VCU_VehicleSpeedValid_0x200, &speedValid);
 	Com_ReceiveSignal(SIG_RX_IDX_VCU_VehicleSpeed_0x200, &speed); // 接收车辆状态信号
-	OLED_ShowNum(4, 5, speed, 3);
 	util_printf(">>Com_ReceiveSignal: gearValid=%d, gearStatus=%d; speedValid=%d, speed=%d\r\n",
 							gearValid, gearStatus, speedValid, speed);
 }

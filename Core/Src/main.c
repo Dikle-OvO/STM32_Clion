@@ -18,14 +18,14 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
-#include <stdio.h>
-#include "util_platform.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "util_platform.h"
+#include "Com_Lcfg.h"
+#include "PduR_Lcfg.h"
+#include "Nm_Lcfg.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,6 +61,8 @@ static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
+TaskHandle_t xTest_TaskHandle = NULL;
+void Test_Task(void *pvParameters);
 uint32_t global_ms;
 /* USER CODE END PFP */
 
@@ -110,14 +112,13 @@ HAL_StatusTypeDef CAN_SendData(CAN_HandleTypeDef *hcan, uint32_t can_id,
 
 void CAN_Stack_init(void)
 {
-  // PduR_Config_Init();
-  //
-  // Com_Init(&gComConfigExample);
-  //
-  // Nm_Init(&gNmConfigExample);
+  PduR_Config_Init();
+  Com_Init(&gComConfigExample);
+  Nm_Init(&gNmConfigExample);
 
-  //	Com_IpduGroupStart(0, TRUE);
-  //	Com_EnableReceptionDM(0);
+  // Com_IpduGroupStart(0, TRUE);
+  // Com_EnableReceptionDM(0);
+  // Nm_PassiveStartUp(0);
 }
 
 
@@ -188,29 +189,22 @@ int main(void)
 
   CAN_FilterTypeDef sFilterConfig;
   sFilterConfig.FilterBank = 0;
-  // 其他滤波器配置参数设置...
-  if (HAL_CAN_ConfigFilter(&hcan, &sFilterConfig) != HAL_OK){
-    Error_Handler();
-  }
-
-  if(HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK){
-    Error_Handler();
-  }
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0000;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x0000;
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
+  HAL_CAN_ConfigFilter(&hcan, &sFilterConfig);
+  HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING);
 
   CAN_Stack_init();
   // UART_Send_IT(&huart1, "Hi\r\n");
 
   util_printf("Hello World\r\n");
-
-  CAN_SendData(
-      &hcan,          // CAN 句柄（CubeMX 生成的 &hcan1 或 &hcan2）
-      0x123,           // 标准 ID（11位，0~0x7FF）
-      0,               // 0=标准帧，1=扩展帧
-      send_data1,      // 数据缓冲区
-      sizeof(send_data1)  // 数据长度（2 字节，sizeof 自动计算）
-  );
-
-
 
   /* USER CODE END 2 */
 
@@ -397,7 +391,16 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void Test_Task(void *pvParameters)
+{
+  for(;;)
+  {
+    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    vTaskDelay(1000);
+  }
+  // 任务正常情况下不会执行到这里，若需要退出，需调用 vTaskDelete
+  vTaskDelete(NULL);
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -413,10 +416,9 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    // HAL_Delay(500);
-    vTaskDelay(500);
-    util_printf("Hello World\r\n");
+    Nm_MainFunction();
+    Com_MainFunctionRx();
+    Com_MainFunctionTx();
   }
   /* USER CODE END 5 */
 }

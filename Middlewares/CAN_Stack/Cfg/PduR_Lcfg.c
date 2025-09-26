@@ -8,7 +8,7 @@
 #include "util_platform.h"
 #include <string.h>
 
-// #include "MyCAN.h"
+#include "main.h"
 
 #ifdef PDUR_ENABLE_DYNAMIC_MEMORY
 #else
@@ -76,19 +76,14 @@ static int CanSendMsg(uint8_t port, uint8_t mb_idx, const uint32_t canid, const 
 //        .len = size,
 //        .data = { 0 },
 //    };
-			// CanTxMsg tx_frame = {
-   //      .StdId = canid,
-   //      .DLC = size,
-   //      .Data = { 0 },
-   //  };
 #endif
 
     // if ((data == NULL) || (size == 0) || (size > sizeof(tx_frame.Data))) {
-//        return -1;
+    //    return -1;
     // }
 
     // memcpy(tx_frame.Data, (uint8_t *)data, 8);// origin:size
-		// MyCAN_Transmit(&tx_frame);  // CAN If send Msg
+    HAL_StatusTypeDef status = CAN_SendData(&hcan, canid, 0, data, 8);  // CAN If send Msg
 
 //		util_printf("PduR has been trig\r\n");
 //    ret = ecual_can_transmit(&can1, mb_idx, &tx_frame);
@@ -143,14 +138,20 @@ void RecvComCallback(const uint32_t canid, const uint8_t isCANFD, const uint8_t 
     Com_RxIndication(0, &pduInfo);
 }
 
+void SendComConfirmCallback(uint32_t canid) {
+    if (canid == 0x100) { //此处的CAN ID就是发送报文的ID
+        Com_TxConfirmation(MSG_TX_IDX_BLE_Status_0x100, E_OK);
+    }
+}
+
 const static PduR_ModuleConfig_t com_cfg = {
     .module_id = PDUR_MID_COM,
     .can_filters = (PdrRCanFilter *)filterCom,
     .filter_count = U_COUNTOF(filterCom),
-		.can_port = 2, //origin:COM_CHANNEL1
+    .can_port = 2, //origin:COM_CHANNEL1，这个接口对应后续上传的时候RXIndiction指定的CAN口，对应的才会到达
     .mb_idx = CAN_MAILBOX_COM,
     .rx_indication = RecvComCallback,
-    .tx_confirm = NULL,
+    .tx_confirm = SendComConfirmCallback,
     .tx_error = NULL,
 };
 
